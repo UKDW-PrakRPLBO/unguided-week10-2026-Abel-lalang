@@ -11,6 +11,7 @@ import org.rplbo.app.ug8.UmbrellaApp;
 import org.rplbo.app.ug8.UmbrellaDBManager;
 
 import java.net.URL;
+import java.util.Optional;
 import java.util.ResourceBundle;
 
 public class UmbrellaController implements Initializable {
@@ -39,6 +40,12 @@ public class UmbrellaController implements Initializable {
 
         // --- TULIS KODE ANDA DI BAWAH INI ---
 
+        colName.setCellValueFactory(new PropertyValueFactory<>("itemName"));
+        colInitial.setCellValueFactory(new PropertyValueFactory<>("initialStock"));
+        colSupply.setCellValueFactory(new PropertyValueFactory<>("newSupply"));
+        colFinal.setCellValueFactory(new PropertyValueFactory<>("finalStock"));
+
+
 
 
 
@@ -57,10 +64,11 @@ public class UmbrellaController implements Initializable {
 
         tableInventory.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
-                // --- TULIS KODE ANDA DI BAWAH INI ---
-
-
-
+                selectedItem = newVal;
+                txtItem.setText(newVal.getItemName());
+                txtInitial.setText(String.valueOf(newVal.getInitialStock()));
+                txtSupply.setText(String.valueOf(newVal.getNewSupply()));
+                txtItem.setDisable(true);
             }
         });
 
@@ -85,11 +93,27 @@ public class UmbrellaController implements Initializable {
 
         // --- TULIS KODE ANDA DI BAWAH INI ---
 
+        if (selectedItem == null) {
+            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an item to update.");
+            return;
+        }
 
+        int initial = Integer.parseInt(txtInitial.getText());
+        int supply  = Integer.parseInt(txtSupply.getText());
+        int finalStock = initial + supply;
+
+        InventoryItem updated = new InventoryItem(
+                selectedItem.getItemName(), initial, supply, finalStock
+        );
+
+        if (db.updateItem(updated)) {
+            refreshTable();
+            clearFields();
+        }
     }
-
     @FXML
     private void handleAdd() {
+
         // ==============================================================================
         // TODO 4: LOGIKA TAMBAH DATA
         // ==============================================================================
@@ -104,7 +128,14 @@ public class UmbrellaController implements Initializable {
 
         // --- TULIS KODE ANDA DI BAWAH INI ---
 
+        int initial    = Integer.parseInt(txtInitial.getText());
+        int supply     = Integer.parseInt(txtSupply.getText());
+        int finalStock = initial + supply;
+        String name    = txtItem.getText();
 
+        InventoryItem item = new InventoryItem(name, initial, supply, finalStock);
+        db.addItem(item);
+        refreshTable();
     }
 
     @FXML
@@ -124,8 +155,29 @@ public class UmbrellaController implements Initializable {
 
         // --- TULIS KODE ANDA DI BAWAH INI ---
 
+        InventoryItem item = tableInventory.getSelectionModel().getSelectedItem();
 
+        if (item != null) {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("Delete Confirmation");
+            confirm.setHeaderText("Delete Item: " + item.getItemName());
+            confirm.setContentText("Are you sure? This action cannot be undone.");
+
+            Optional<ButtonType> result = confirm.showAndWait();
+            if (result.isPresent() && result.get() == ButtonType.OK) {
+                if (db.deleteItem(item.getItemName())) {
+                    masterData.remove(item);
+                    clearFields();
+                }
+            }
+        } else {
+            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an item to delete.");
+        }
     }
+
+
+
+
 
     // Logout
     @FXML
@@ -152,5 +204,13 @@ public class UmbrellaController implements Initializable {
     private void refreshTable() {
         masterData.setAll(db.getAllItems());
         tableInventory.setItems(masterData);
+    }
+
+    private void showAlert(Alert.AlertType type, String title, String content) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 }
